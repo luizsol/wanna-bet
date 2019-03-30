@@ -1,6 +1,7 @@
 (ns wanna-bet.handler
   (:require
    [reitit.ring :as reitit-ring]
+   [clojure.data.json :as json]
    [wanna-bet.middleware :refer [middleware]]
    [hiccup.page :refer [include-js include-css html5]]
    [config.core :refer [env]]))
@@ -31,10 +32,17 @@
    :headers {"Content-Type" "text/html"}
    :body (loading-page)})
 
+(defn teste 
+  [_request] 
+  {:status 200
+   :headers {"Content-Type" "application/json"}
+   :body (json/write-str {:phone (rand-int 100)})})
+
 (def app
   (reitit-ring/ring-handler
    (reitit-ring/router
     [["/" {:get {:handler index-handler}}]
+     ["/rand" {:get {:handler teste}}]
      ["/items"
       ["" {:get {:handler index-handler}}]
       ["/:item-id" {:get {:handler index-handler

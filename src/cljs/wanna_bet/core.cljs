@@ -1,6 +1,7 @@
 (ns wanna-bet.core
   (:require
    [reagent.core :as reagent :refer [atom]]
+   [ajax.core :as ajx]
    [reagent.session :as session]
    [reitit.frontend :as reitit]
    [clerk.core :as clerk]
@@ -23,18 +24,36 @@
     (:path (reitit/match-by-name router route))))
 
 (path-for :about)
+
+;; -------------------------
+;; State
+
+(defonce state
+  (atom {:phone 22
+                 :search ""
+                 :order-prop :name}))
+
+(defn load-phones! 
+  "Fetches the list of phones from the server and updates the state atom with it"
+  [state]
+  (ajx/GET "/rand"
+    {:handler (fn [phone] (swap! state assoc :phone (:phone phone)))
+     :error-handler (fn [details] (.warn js/console (str "Failed to refresh phones from server: " details)))
+     :response-format :json, :keywords? true}))
+
 ;; -------------------------
 ;; Page components
 
 (defn home-page []
-  (fn []
-    [:span.main
-     [:h1 "Wanna bet?"]
-     [:ul
-      [:li [:a {:href (path-for :items)} "Items of wanna-bet"]]
-      [:li [:a {:href "/borken/link"} "Borken link"]]]]))
-
-
+  (do (load-phones! state)
+      (fn []
+        (let [phone (:phone @state)]
+          [:span.main
+           [:h1 (str "Wanna bet? " phone)]
+           [:ul
+            [:li [:a {:href (path-for :items)} "Items of wanna-bet"]]
+            [:li [:a {:href "/borken/link"} "Borken link"]]]])
+        )))
 
 (defn items-page []
   (fn []
@@ -45,7 +64,6 @@
                   [:a {:href (path-for :item {:item-id item-id})} "Item: " item-id]])
                (range 1 60))]]))
 
-
 (defn item-page []
   (fn []
     (let [routing-data (session/get :route)
@@ -54,11 +72,9 @@
        [:h1 (str "Item " item " of wanna-bet")]
        [:p [:a {:href (path-for :items)} "Back to the list of items"]]])))
 
-
 (defn about-page []
   (fn [] [:span.main
           [:h1 "About wanna-bet"]]))
-
 
 ;; -------------------------
 ;; Translate routes -> page components
@@ -109,4 +125,5 @@
     (fn [path]
       (boolean (reitit/match-by-path router path)))})
   (accountant/dispatch-current!)
+  (load-phones! state)
   (mount-root))

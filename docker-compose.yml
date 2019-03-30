@@ -1,0 +1,39 @@
+version: '3'
+
+services:
+  #############
+  # DATABASE
+  #############
+  atlas-intelligence-db:
+    image: redis:5
+    container_name: wanna-bet-db
+    volumes:
+      - ./data:/data
+    ports:
+      - 6379:6379
+    networks:
+      wanna_bet_containers_net:
+        ipv4_address: 172.28.1.1
+  #############
+  # APP
+  #############
+  # api-gateway:
+  #   build:
+  #     context: .
+  #   container_name: wanna-bet-app
+  #   environment:
+  #     WANNA_BET_HASH_SALT: ${WANNA_BET_HASH_SALT:-dlvmpd-=b)m_c1h0y69!i1!xgo=c)m2)plr+6huk+m9tf_py!0}
+  #   ports:
+  #     - 3449:3449
+  #     - 7002:7002
+  #     - 3000:3000
+  #   networks:
+  #     wanna_bet_containers_net:
+  #       ipv4_address: 172.28.1.2
+
+networks:
+  wanna_bet_containers_net:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.0.0/16
