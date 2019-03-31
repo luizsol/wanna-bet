@@ -11,7 +11,7 @@
 (defn validate-user-name-len
   "Usernames must be at least 5 letters long and at maximux 20 letters long"
   [s]
-  (and (=> (count s) 5) (<= (count s) 20)))
+  (and (>= (count s) 5) (<= (count s) 20)))
 
 (defn validate-user
   [s]
@@ -22,3 +22,9 @@
   [email]
   (let [pattern #"[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?"]
     (and (string? email) (re-matches pattern email))))
+
+;; -------------------------
+;; Bets
+
+;; source https://gist.github.com/rboyd/5053955
+(defn rand-str [len] (apply str (take len (repeatedly #(char (+ (rand 26) 65))))))
