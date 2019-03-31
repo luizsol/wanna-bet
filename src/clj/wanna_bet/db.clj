@@ -138,8 +138,10 @@
   "Retrieves an user's data as a map if it exists"
   [id]
   (into {:id id} 
-        (let [user-keys (keys default-user)]
-          (zipmap user-keys (wcar* (apply car/mget user-keys))))))
+        (let [user-keys (keys (default-user-map))]
+          (zipmap user-keys (wcar* (apply car/mget (map 
+                                                    #(user-field-to-redis-key id %) 
+                                                    user-keys)))))))
 
 (defn get-user-id-by-name
   "Retrieves an user's id if it exists searching by its name"
@@ -170,34 +172,76 @@
 ;; -------------------------
 ;; Bets
 
-; (def bet-id-to-keyword (id-to-keywork "bet"))
+(def bet-field-to-redis-key (field-to-redis-key "bet"))
 
-; (def random-ticker (util/rand-str 6))
+(def random-ticker (util/rand-str 6))
 
-; (defn new-bet-record
-;   "Creates a map representing a bet"
-;   [id kw ticker description creator contract-value expiration]
-;   {:id id
-;    :active true
-;    :keyword kw
-;    :ticker ticker
-;    :creator creator
-;    :expiration expiration
-;    :result nil
-;    :created-at (l/local-now)
-;    :updated-at (l/local-now)
-;    :contract-value contract-value
-;    :buy-orders []
-;    :sell-orders []
-;    :trades []})
+(def random-bet-id (random-entity-id "bet"))
 
-; (defn create-bet!
-;   "Creates a bet"
-;   [ticker description creator contract-value expiration]
-;     (let [[id kw] (get-random-keyword bet-id-to-keyword)
-;           record (new-bet-record id kw ticker description creator contract-value expiration)]
-;       (db-set! kw record)))
+(defn default-bet-map
+  "Generates an bet default map"
+  []
+  {:active true
+   :ticker nil
+   :creator nil
+   :expiration nil
+   :result nil
+   :created-at (l/local-now)
+   :updated-at (l/local-now)
+   :contract-value nil
+   :buy-orders []
+   :sell-orders []
+   :trades []})
 
+(defn crete-bet-key-value-list
+  "Creates a mset ready key value list for a new bet"
+  ([id description creator expiration]
+   (crete-bet-key-value-list id (random-ticker) description creator 100 expiration))
+  ([id description creator contract-value expiration] 
+   (crete-bet-key-value-list id (random-ticker) description creator contract-value expiration))
+  ([id ticker description creator contract-value expiration]
+   (let [merged-map (into (default-bet-map)
+                          {:ticker ticker
+                           :description description
+                           :creator creator
+                           :contract-value contract-value
+                           :expiration expiration})]
+     (default-entity-to-list (zipmap (map
+                                      #(bet-field-to-redis-key id %)
+                                      (keys merged-map))
+                                     (vals merged-map))))))
+
+(defn create-bet!
+  "Creates a new bet"
+  ([description creator expiration]
+   (create-bet! (random-ticker) description creator 100 expiration))
+  ([description creator contract-value expiration] 
+   (create-bet! (random-ticker) description creator contract-value expiration))
+  ([ticker description creator contract-value expiration]
+   (if (db-get (car/key :user creator :active))
+     (let [id (random-user-id)]
+       (do (wcar* (apply car/mset (crete-bet-key-value-list id 
+                                                            ticker 
+                                                            description 
+                                                            creator 
+                                                            contract-value 
+                                                            expiration)))
+           id)))))
+
+(defn get-bet-data
+  "Retrieves an bet's data as a map if it exists"
+  [id]
+  (into {:id id}
+        (let [bet-keys (keys (default-bet-map))]
+          (zipmap bet-keys (wcar* (apply car/mget 
+                                         (map 
+                                          #(bet-field-to-redis-key id %) 
+                                          bet-keys)))))))
+
+;; -------------------------
+;; Orders
+
+;; TODO
 
 ;; -------------------------
 ;; Test area
@@ -212,6 +256,15 @@
 
 ; (crete-user-key-value-list 1234 "blipblop" "lllol@bol.com" "12345")
 
+; (crete-bet-key-value-list 1234 "What did the fox say?" 1234 (t/date-time 2019 12 13 11 0 0))
+
+; (def bet-id (create-bet! "What did the fox say?" user-id (t/date-time 2019 12 13 11 0 0)))
+
+; (bet-field-to-redis-key 1123 "creator")
+
+; (get-bet-data bet-id)
+
+; (random-ticker)
 ; (wcar* (apply car/mset (default-entity-to-list (into default-user
 ;                                                      {:name "blipblop"
 ;                                                       :email "lllol@bol.com"
@@ -223,6 +276,9 @@
 ; (get-all-user-names)
 ; (get-all-user-emails)
 
-; (get-user-id-by-name "shing")
+; (def user-id (get-user-id-by-name "shing"))
+; (db-set! (car/key :user user-id :active) true)
+; (db-get (car/key :user user-id :active))
+; (get-user-data user-id)
 
-; (get-user-data 1917614690)
+; (keys (default-user-map))

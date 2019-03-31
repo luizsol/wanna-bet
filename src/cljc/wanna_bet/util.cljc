@@ -27,4 +27,4 @@
 ;; Bets
 
 ;; source https://gist.github.com/rboyd/5053955
-(defn rand-str [len] (apply str (take len (repeatedly #(char (+ (rand 26) 65))))))
+(defn rand-str [len] (fn [] (apply str (take len (repeatedly #(char (+ (rand 26) 65)))))))
