@@ -8,13 +8,18 @@
 ;; -------------------------
 ;; DB Configuration
 
-(def server1-conn {:pool {} 
-                   :spec {:host "127.0.0.1" :port 6379 :db 3}})
+(def conn-pool {:pool {}
+                :spec {:host (or (System/getenv "WANNA_BET_REDIS_HOST")
+                                 "localhost")
+                       :port (or (System/getenv "WANNA_BET_REDIS_PORT")
+                                 6379)
+                       :db (or (System/getenv "WANNA_BET_REDIS_DB")
+                               3)}})
 
 ;; -------------------------
 ;; Basic DB functions
 
-(defmacro wcar* [& body] `(car/wcar server1-conn ~@body))
+(defmacro wcar* [& body] `(car/wcar conn-pool ~@body))
 
 (defn db-get [key] (wcar* (car/get key)))
 
@@ -58,6 +63,11 @@
 
 (def user-field-to-redis-key (field-to-redis-key "user"))
 
+(defn user-fields-to-redis-keys 
+  "Maps each key to a Redis dialect key such as user:id:field"
+  [id user-keys] 
+  (map #(user-field-to-redis-key id %) user-keys))
+
 (def hash-salt (or (System/getenv "WANNA_BET_HASH_SALT")
                    "dlvmpd-=b)m_c1h0y69!i1!xgo=c)m2)plr+6huk+m9tf_py!0"))
 
@@ -88,9 +98,7 @@
                          {:name name
                           :email email
                           :hash (hash-and-salt passwd)})]
-    (default-entity-to-list (zipmap (map 
-                                     #(user-field-to-redis-key id %)
-                                     (keys merged-map))
+    (default-entity-to-list (zipmap (user-fields-to-redis-keys id (keys merged-map))
                                     (vals merged-map)))))
 
 (defn salt
@@ -124,7 +132,7 @@
 (defn user-email-exists? [email] (.contains (get-all-user-emails) email))
 
 (defn create-user!
-  "Creates a new user if it's name and email are valid and unique"
+  "Creates and store new user if it's name and email are valid and unique"
   [name email passwd]
   (if (and (util/validate-user name)
            (util/validate-email email)
@@ -139,9 +147,8 @@
   [id]
   (into {:id id} 
         (let [user-keys (keys (default-user-map))]
-          (zipmap user-keys (wcar* (apply car/mget (map 
-                                                    #(user-field-to-redis-key id %) 
-                                                    user-keys)))))))
+          (zipmap user-keys 
+                  (wcar* (apply car/mget (user-fields-to-redis-keys id user-keys)))))))
 
 (defn get-user-id-by-name
   "Retrieves an user's id if it exists searching by its name"
@@ -173,6 +180,11 @@
 ;; Bets
 
 (def bet-field-to-redis-key (field-to-redis-key "bet"))
+
+(defn bet-fields-to-redis-keys
+  "Maps each key to a Redis dialect key such as bet:id:field"
+  [id bet-keys]
+  (map #(bet-field-to-redis-key id %) bet-keys))
 
 (def random-ticker (util/rand-str 6))
 
@@ -206,13 +218,11 @@
                            :creator creator
                            :contract-value contract-value
                            :expiration expiration})]
-     (default-entity-to-list (zipmap (map
-                                      #(bet-field-to-redis-key id %)
-                                      (keys merged-map))
+     (default-entity-to-list (zipmap (bet-fields-to-redis-keys id (keys merged-map))
                                      (vals merged-map))))))
 
 (defn create-bet!
-  "Creates a new bet"
+  "Creates and store new bet"
   ([description creator expiration]
    (create-bet! (random-ticker) description creator 100 expiration))
   ([description creator contract-value expiration] 
@@ -233,10 +243,8 @@
   [id]
   (into {:id id}
         (let [bet-keys (keys (default-bet-map))]
-          (zipmap bet-keys (wcar* (apply car/mget 
-                                         (map 
-                                          #(bet-field-to-redis-key id %) 
-                                          bet-keys)))))))
+          (zipmap bet-keys 
+                  (wcar* (apply car/mget (bet-fields-to-redis-keys id bet-keys)))))))
 
 ;; -------------------------
 ;; Orders
@@ -262,7 +270,7 @@
 
 ; (bet-field-to-redis-key 1123 "creator")
 
-; (get-bet-data bet-id)
+(get-bet-data bet-id)
 
 ; (random-ticker)
 ; (wcar* (apply car/mset (default-entity-to-list (into default-user
@@ -279,6 +287,6 @@
 ; (def user-id (get-user-id-by-name "shing"))
 ; (db-set! (car/key :user user-id :active) true)
 ; (db-get (car/key :user user-id :active))
-; (get-user-data user-id)
+(get-user-data user-id)
 
 ; (keys (default-user-map))
